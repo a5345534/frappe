@@ -283,14 +283,15 @@ def _get_linked_document_counts(doctype: str, name: str, items=None):
 	}
 
 	for d in items:
-		internal_link_for_doctype = links.get("internal_links", {}).get(d) or links.get(
-			"internal_and_external_links", {}
-		).get(d)
-		if internal_link_for_doctype:
-			internal_links_data_for_d = get_internal_links(doc, internal_link_for_doctype, d)
+		internal_link_for_doctype = links.get("internal_links", {}).get(d)
+		internal_and_external_link_for_doctype = links.get("internal_and_external_links", {}).get(d)
+		link_definition = internal_link_for_doctype or internal_and_external_link_for_doctype
+
+		if link_definition:
+			internal_links_data_for_d = get_internal_links(doc, link_definition, d)
 			if internal_links_data_for_d["count"]:
 				out["internal_links_found"].append(internal_links_data_for_d)
-			else:
+			elif internal_and_external_link_for_doctype:
 				try:
 					external_links_data_for_d = get_external_links(d, name, links)
 					out["external_links_found"].append(external_links_data_for_d)

@@ -153,6 +153,53 @@ class TestDashboardConnections(IntegrationTestCase):
 		todo.links = todo.links[:-2]
 		todo.run_method("save_customization")
 
+	def test_pure_internal_links_do_not_fall_back_to_external_counts(self):
+		saturn = frappe.get_doc(
+			{
+				"doctype": "Test Doctype A With Child Table With Link To Doctype B",
+				"title": "Saturn Internal Only",
+			}
+		)
+		saturn.append(
+			"child_table",
+			{
+				"title": "Saturn Internal Only",
+			},
+		)
+		saturn.insert()
+
+		pluto = frappe.get_doc(
+			{
+				"doctype": "Test Doctype B With Child Table With Link To Doctype A",
+				"title": "Pluto Internal Only",
+			}
+		)
+		pluto.append(
+			"child_table",
+			{
+				"title": "Pluto Internal Only",
+				"test_doctype_a_with_test_child_table_with_link_to_doctype_b": "Saturn Internal Only",
+			},
+		)
+		pluto.insert()
+
+		expected_open_count = {
+			"count": {
+				"external_links_found": [],
+				"internal_links_found": [],
+			}
+		}
+
+		with patch.object(
+			saturn.meta,
+			"get_dashboard_data",
+			return_value=get_dashboard_for_test_doctype_a_with_pure_internal_link_to_doctype_b(),
+		):
+			self.assertEqual(
+				get_open_count("Test Doctype A With Child Table With Link To Doctype B", "Saturn Internal Only"),
+				expected_open_count,
+			)
+
 
 def create_test_data():
 	create_test_child_table_with_link_to_doctype_a()
@@ -300,6 +347,29 @@ def get_dashboard_for_test_doctype_a_with_test_child_table_with_link_to_doctype_
 
 	dashboard.fieldname = data["fieldname"]
 	dashboard.internal_and_external_links = data["internal_and_external_links"]
+	dashboard.transactions = data["transactions"]
+
+	return dashboard
+
+
+def get_dashboard_for_test_doctype_a_with_pure_internal_link_to_doctype_b():
+	dashboard = frappe._dict()
+
+	data = {
+		"fieldname": "test_doctype_a_with_test_child_table_with_link_to_doctype_b",
+		"internal_links": {
+			"Test Doctype B With Child Table With Link To Doctype A": [
+				"child_table",
+				"test_doctype_b_with_test_child_table_with_link_to_doctype_a",
+			],
+		},
+		"transactions": [
+			{"label": "Reference", "items": ["Test Doctype B With Child Table With Link To Doctype A"]},
+		],
+	}
+
+	dashboard.fieldname = data["fieldname"]
+	dashboard.internal_links = data["internal_links"]
 	dashboard.transactions = data["transactions"]
 
 	return dashboard
